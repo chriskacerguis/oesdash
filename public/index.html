@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OES Dashboard — Official Emergency Station</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+
+  <!-- ═══ TOP BAR ═══════════════════════════════════════════════════════ -->
+  <header class="top-bar">
+    <div class="top-bar-left">
+      <div class="station-badge">OES</div>
+      <div class="station-info">
+        <h1>Official Emergency Station</h1>
+        <span class="subtitle">Austin, TX Metro — Situational Awareness</span>
+      </div>
+    </div>
+    <div class="status-strip" id="status-strip">
+      <div class="s-ind" id="ind-temp" title="Temperature"><span class="s-label">TEMP</span><span class="s-val" id="sv-temp">—</span></div>
+      <div class="s-ind" id="ind-wind" title="Wind"><span class="s-label">WIND</span><span class="s-val" id="sv-wind">—</span></div>
+      <div class="s-ind" id="ind-aqi" title="Air Quality"><span class="s-label">AQI</span><span class="s-val" id="sv-aqi">—</span></div>
+      <div class="s-ind" id="ind-grid" title="ERCOT Grid"><span class="s-label">GRID</span><span class="s-val" id="sv-grid">—</span></div>
+      <div class="s-ind" id="ind-kp" title="Kp Index"><span class="s-label">Kp</span><span class="s-val" id="sv-kp">—</span></div>
+      <div class="s-ind" id="ind-alerts" title="Active Alerts"><span class="s-label">ALERTS</span><span class="s-val" id="sv-alerts">0</span></div>
+      <div class="s-ind" id="ind-flights" title="Aircraft Tracked"><span class="s-label">A/C</span><span class="s-val" id="sv-flights">—</span></div>
+      <div class="s-ind" id="ind-sun" title="Sunrise / Sunset"><span class="s-label">SUN</span><span class="s-val" id="sv-sun">—</span></div>
+    </div>
+    <div class="top-bar-right">
+      <div class="clock" id="clock"></div>
+      <div class="live-pill"><span class="dot"></span>LIVE</div>
+    </div>
+  </header>
+
+  <!-- ═══ ALERT TICKER ══════════════════════════════════════════════════ -->
+  <section id="alerts-banner" class="alerts-banner hidden"></section>
+
+  <!-- ═══ MAIN TACTICAL LAYOUT ══════════════════════════════════════════ -->
+  <div class="tac-layout">
+
+    <!-- ─── LEFT SIDEBAR ──────────────────────────────────────────────── -->
+    <aside class="tac-left">
+
+      <section class="panel" id="card-weather">
+        <div class="panel-hdr"><span class="ph-title">WEATHER STATION</span><span class="ph-src" id="weather-source-badge">NWS</span></div>
+        <div class="panel-body" id="weather-body"><div class="loader"></div></div>
+      </section>
+
+      <section class="panel" id="card-forecast">
+        <div class="panel-hdr"><span class="ph-title">FORECAST</span><span class="ph-src">NWS</span></div>
+        <div class="panel-body" id="forecast-body"><div class="loader"></div></div>
+      </section>
+
+      <section class="panel" id="card-alerts">
+        <div class="panel-hdr"><span class="ph-title">NWS ALERTS</span><span class="ph-src">NWS</span></div>
+        <div class="panel-body" id="alerts-body"><div class="loader"></div></div>
+      </section>
+
+      <section class="panel" id="card-spc">
+        <div class="panel-hdr"><span class="ph-title">SPC OUTLOOK</span><span class="ph-src">SPC</span></div>
+        <div class="panel-body" id="spc-body"><div class="loader"></div></div>
+      </section>
+
+      <section class="panel" id="card-tropical">
+        <div class="panel-hdr"><span class="ph-title">TROPICAL</span><span class="ph-src">NHC</span></div>
+        <div class="panel-body" id="tropical-body"><div class="loader"></div></div>
+      </section>
+
+    </aside>
+
+    <!-- ─── CENTER STAGE ──────────────────────────────────────────────── -->
+    <main class="tac-center">
+
+      <div class="center-view">
+        <div class="center-tabs">
+          <button class="cv-tab active" data-view="radar">RADAR</button>
+          <button class="cv-tab" data-view="satellite">SATELLITE</button>
+          <span class="cv-sep"></span>
+          <button class="layer-tog active" data-layer="radar" title="RainViewer Radar">RDR</button>
+          <button class="layer-tog" data-layer="gauges" title="USGS Stream Gauges">GAU</button>
+          <button class="layer-tog" data-layer="quakes" title="Earthquakes">EQ</button>
+          <button class="layer-tog" data-layer="fires" title="Wildfires">FIRE</button>
+          <button class="layer-tog" data-layer="alerts" title="NWS Alert Zones">ALR</button>
+          <button class="layer-tog" data-layer="flights" title="ADS-B Aircraft">A/C</button>
+        </div>
+        <div class="center-pane" id="center-radar" style="display:block">
+          <div id="radar-body" style="width:100%;height:100%"><div id="map" style="width:100%;height:100%"></div></div>
+        </div>
+        <div class="center-pane" id="center-satellite" style="display:none">
+          <div id="satellite-body"><div class="loader"></div></div>
+        </div>
+      </div>
+
+      <!-- Bottom horizontal strip inside center -->
+      <div class="center-bottom">
+
+        <section class="panel panel-compact" id="card-gauges">
+          <div class="panel-hdr"><span class="ph-title">STREAM GAUGES</span><span class="ph-src">USGS</span></div>
+          <div class="panel-body" id="gauges-body"><div class="loader"></div></div>
+        </section>
+
+        <section class="panel panel-compact" id="card-floods">
+          <div class="panel-hdr"><span class="ph-title">LOW-WATER CROSSINGS</span><span class="ph-src">ATXFloods</span></div>
+          <div class="panel-body" id="floods-body"><div class="loader"></div></div>
+        </section>
+
+        <section class="panel panel-compact" id="card-riverforecast">
+          <div class="panel-hdr"><span class="ph-title">RIVER FORECASTS</span><span class="ph-src">NWPS</span></div>
+          <div class="panel-body" id="riverforecast-body"><div class="loader"></div></div>
+        </section>
+
+      </div>
+
+    </main>
+
+    <!-- ─── RIGHT SIDEBAR ─────────────────────────────────────────────── -->
+    <aside class="tac-right">
+
+      <section class="panel" id="card-adsb">
+        <div class="panel-hdr"><span class="ph-title">ADS-B TRACKING</span><span class="ph-src">FR24</span></div>
+        <div class="panel-body" id="adsb-body"><div class="loader"></div></div>
+      </section>
+
+      <section class="panel" id="card-airports">
+        <div class="panel-hdr"><span class="ph-title">AIRPORTS</span><span class="ph-src">FAA / AWC</span></div>
+        <div class="panel-body" id="airports-body"><div class="loader"></div></div>
+      </section>
+
+      <section class="panel" id="card-ercot">
+        <div class="panel-hdr"><span class="ph-title">ERCOT GRID</span><span class="ph-src">ERCOT</span></div>
+        <div class="panel-body" id="ercot-body"><div class="loader"></div></div>
+      </section>
+
+      <section class="panel" id="card-aqi">
+        <div class="panel-hdr"><span class="ph-title">AIR QUALITY</span><span class="ph-src">AirNow</span></div>
+        <div class="panel-body" id="aqi-body"><div class="loader"></div></div>
+      </section>
+
+      <section class="panel" id="card-spaceweather">
+        <div class="panel-hdr"><span class="ph-title">SPACE WEATHER</span><span class="ph-src">SWPC</span></div>
+        <div class="panel-body" id="spaceweather-body"><div class="loader"></div></div>
+      </section>
+
+    </aside>
+
+  </div>
+
+  <!-- ═══ BOTTOM TRAY ═══════════════════════════════════════════════════ -->
+  <div class="tac-tray">
+
+    <section class="panel panel-compact" id="card-earthquakes">
+      <div class="panel-hdr"><span class="ph-title">EARTHQUAKES</span><span class="ph-src">USGS</span></div>
+      <div class="panel-body" id="earthquakes-body"><div class="loader"></div></div>
+    </section>
+
+    <section class="panel panel-compact" id="card-wildfires">
+      <div class="panel-hdr"><span class="ph-title">WILDFIRES</span><span class="ph-src">NIFC</span></div>
+      <div class="panel-body" id="wildfires-body"><div class="loader"></div></div>
+    </section>
+
+    <section class="panel panel-compact" id="card-emissions">
+      <div class="panel-hdr"><span class="ph-title">TCEQ EMISSIONS</span><span class="ph-src">TCEQ</span></div>
+      <div class="panel-body" id="emissions-body"><div class="loader"></div></div>
+    </section>
+
+    <section class="panel panel-compact" id="card-sun">
+      <div class="panel-hdr"><span class="ph-title">SUN &amp; MOON</span><span class="ph-src">USNO</span></div>
+      <div class="panel-body" id="sun-body"><div class="loader"></div></div>
+    </section>
+
+    <section class="panel panel-compact" id="card-aprs">
+      <div class="panel-hdr"><span class="ph-title">APRS 144.390</span><span class="ph-src">RX</span></div>
+      <div class="panel-body" id="aprs-body">
+        <a href="https://aprs.fi/#!lat=30.2672&lng=-97.7431&z=10" target="_blank" rel="noopener" class="ext-link">APRS.fi Map →</a>
+      </div>
+    </section>
+
+    <section class="panel panel-compact" id="card-links">
+      <div class="panel-hdr"><span class="ph-title">RESOURCES</span></div>
+      <div class="panel-body" id="links-body"><div class="loader"></div></div>
+    </section>
+
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script src="/js/dashboard.js"></script>
+</body>
+</html>

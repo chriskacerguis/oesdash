@@ -1,0 +1,16 @@
+{
+  "name": "oes-dashboard",
+  "version": "1.0.0",
+  "description": "Official Emergency Station Dashboard",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev:kill": "lsof -ti:3000 | xargs kill -9",
+    "dev": "node --watch server.js"
+  },
+  "dependencies": {
+    "axios": "^1.7.0",
+    "dotenv": "^16.4.0",
+    "express": "^4.21.0"
+  }
+}
