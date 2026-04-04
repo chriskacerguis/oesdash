@@ -19,7 +19,7 @@
   let map, radarLayer, gaugesLayer, quakesLayer, firesLayer, alertsLayer, flightsLayer;
 
   function initMap() {
-    map = L.map('map', { zoomControl: true, attributionControl: false }).setView(STATION, 8);
+    map = L.map('map', { zoomControl: true, attributionControl: false }).setView(STATION, 12);
     L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', {
       maxZoom: 19,
       maxNativeZoom: 18,
@@ -302,7 +302,13 @@
         flightsLayer.clearLayers();
         d.aircraft.forEach(a => {
           if (a.lat == null || a.lon == null) return;
-          const icon = L.divIcon({ className: 'map-marker-flight', html: '✈', iconSize: [16, 16], iconAnchor: [8, 8] });
+          const rot = a.track != null ? `transform:rotate(${a.track}deg)` : '';
+          const icon = L.divIcon({
+            className: 'map-marker-flight',
+            html: `<div style="${rot}">✈</div>`,
+            iconSize: [22, 22],
+            iconAnchor: [11, 11]
+          });
           L.marker([a.lat, a.lon], { icon })
             .bindPopup(`<div class="popup-title">${escHtml(a.flight || a.hex)}</div><div class="popup-dim">Alt ${a.altitude != null ? a.altitude.toLocaleString() + ' ft' : '—'} · ${a.speed != null ? Math.round(a.speed) + ' kt' : '—'}</div>${a.squawk ? '<div class="popup-dim">Squawk ' + escHtml(a.squawk) + '</div>' : ''}`)
             .addTo(flightsLayer);
@@ -488,20 +494,7 @@
     }
   }
 
-  // ── External Links ──────────────────────────────────────────────────────
-  async function loadLinks() {
-    const el = document.getElementById('links-body');
-    try {
-      const links = await api('/links');
-      el.innerHTML = `<div class="links-grid">${links.map(l => `
-        <a href="${l.url}" target="_blank" rel="noopener" class="link-item">
-          <div class="link-name">${escHtml(l.name)}</div>
-          <div class="link-desc">${escHtml(l.description)}</div>
-        </a>`).join('')}</div>`;
-    } catch (e) {
-      el.innerHTML = `<p class="error-text">Failed to load links</p>`;
-    }
-  }
+
 
   // ── SPC Severe Weather Outlook ────────────────────────────────────────
   async function loadSpc() {
@@ -652,6 +645,41 @@
     }
   }
 
+  // ── HF Propagation (MUF / LUF) ────────────────────────────────────────
+  async function loadHfProp() {
+    const el = document.getElementById('hfprop-body');
+    try {
+      const d = await api('/hfprop');
+      const mufVal = d.muf != null ? d.muf + ' MHz' : '—';
+      const lufVal = d.luf != null ? d.luf + ' MHz' : '—';
+      const fluxVal = d.solarFlux != null ? d.solarFlux + ' SFU' : '—';
+      const gridVal = d.grid || '—';
+
+      el.innerHTML = `
+        <div class="hf-grid">
+          <div class="hf-stat hf-primary">
+            <div class="value">${escHtml(mufVal)}</div>
+            <div class="label">MUF — Max Usable Freq</div>
+          </div>
+          <div class="hf-stat hf-primary">
+            <div class="value">${escHtml(lufVal)}</div>
+            <div class="label">LUF — Lowest Usable Freq</div>
+          </div>
+          <div class="hf-stat">
+            <div class="value">${escHtml(fluxVal)}</div>
+            <div class="label">Solar Flux (10.7 cm)</div>
+          </div>
+          <div class="hf-stat">
+            <div class="value">${escHtml(gridVal)}</div>
+            <div class="label">Grid Square</div>
+          </div>
+        </div>
+      `;
+    } catch (e) {
+      el.innerHTML = `<p class="error-text">HF propagation unavailable: ${escHtml(e.message)}</p>`;
+    }
+  }
+
   // ── GOES Satellite ────────────────────────────────────────────────────
   async function loadSatellite() {
     const el = document.getElementById('satellite-body');
@@ -776,8 +804,6 @@
         <div class="sun-grid">
           <div class="sun-item"><div class="emoji">🌅</div><div class="time-val">${escHtml(d.sunrise || '—')}</div><div class="label">Sunrise</div></div>
           <div class="sun-item"><div class="emoji">🌇</div><div class="time-val">${escHtml(d.sunset || '—')}</div><div class="label">Sunset</div></div>
-          <div class="sun-item"><div class="emoji">🌙</div><div class="time-val">${escHtml(d.moonrise || '—')}</div><div class="label">Moonrise</div></div>
-          <div class="sun-item"><div class="emoji">🌙</div><div class="time-val">${escHtml(d.moonset || '—')}</div><div class="label">Moonset</div></div>
           ${d.moonPhase ? `<div class="moon-phase"><div class="emoji">${phaseEmoji}</div><div class="phase-name">${escHtml(d.moonPhase)}</div></div>` : ''}
         </div>
       `;
@@ -803,11 +829,11 @@
     loadFloods();
     loadAqi();
     loadErcot();
-    loadLinks();
     loadSpc();
     loadTropical();
     loadEarthquakes();
     loadSpaceWeather();
+    loadHfProp();
     loadSatellite();
     loadWildfires();
     loadRiverForecast();
@@ -832,6 +858,7 @@
   setInterval(loadTropical, 10 * 60 * 1000);
   setInterval(loadEarthquakes, 5 * 60 * 1000);
   setInterval(loadSpaceWeather, 5 * 60 * 1000);
+  setInterval(loadHfProp, 5 * 60 * 1000);
   setInterval(loadSatellite, 5 * 60 * 1000);
   setInterval(loadWildfires, 10 * 60 * 1000);
   setInterval(loadRiverForecast, 10 * 60 * 1000);

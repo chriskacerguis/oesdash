@@ -357,8 +357,11 @@ body {
 
 .map-marker-flight {
   color: var(--green);
-  font-size: 14px;
-  text-shadow: 0 0 4px rgba(34,197,94,0.6);
+  font-size: 18px;
+  line-height: 22px;
+  text-align: center;
+  text-shadow: 0 0 6px rgba(34,197,94,0.8), 0 0 12px rgba(34,197,94,0.4);
+  filter: drop-shadow(0 0 2px rgba(0,0,0,0.8));
 }
 
 .leaflet-popup-content-wrapper {
@@ -741,6 +744,17 @@ body {
 }
 .sw-stat .value { font-size: 0.8rem; font-weight: 600; color: var(--text-bright); font-family: var(--mono); }
 .sw-stat .label { font-size: 0.52rem; color: var(--text-dim); text-transform: uppercase; margin-top: 0.05rem; }
+
+/* -- HF PROPAGATION ----------------------------------------------------- */
+.hf-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.35rem; }
+.hf-stat {
+  text-align: center; padding: 0.3rem;
+  background: rgba(255,255,255,0.02); border-radius: 3px; border: 1px solid var(--border);
+}
+.hf-stat.hf-primary { border-color: var(--accent); background: rgba(59,130,246,0.06); }
+.hf-stat .value { font-size: 0.85rem; font-weight: 600; color: var(--text-bright); font-family: var(--mono); }
+.hf-stat.hf-primary .value { font-size: 1rem; color: var(--accent); }
+.hf-stat .label { font-size: 0.52rem; color: var(--text-dim); text-transform: uppercase; margin-top: 0.05rem; }
 
 /* -- SATELLITE ---------------------------------------------------------- */
 .satellite-view { text-align: center; }
