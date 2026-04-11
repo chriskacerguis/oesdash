@@ -15,22 +15,22 @@
   updateClock();
 
   // ── Leaflet Map ───────────────────────────────────────────────────────
-  const STATION = [30.2672, -97.7431];
+  const STATION = { lat: 30.2672, lon: -97.7431 };
   let map, radarLayer, gaugesLayer, quakesLayer, firesLayer, alertsLayer, flightsLayer;
 
   async function initMap() {
     // Fetch station location from server config
     try {
       const cfg = await api('/config');
-      STATION[0] = cfg.lat;
-      STATION[1] = cfg.lon;
+      STATION.lat = cfg.lat;
+      STATION.lon = cfg.lon;
       if (cfg.location) {
         const subtitle = document.getElementById('station-subtitle');
         if (subtitle) subtitle.textContent = `${cfg.location} — Situational Awareness`;
       }
     } catch { /* use defaults */ }
 
-    map = L.map('map', { zoomControl: true, attributionControl: false }).setView(STATION, 12);
+    map = L.map('map', { zoomControl: true, attributionControl: false }).setView([STATION.lat, STATION.lon], 12);
     L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', {
       maxZoom: 19,
       maxNativeZoom: 18,
@@ -53,8 +53,8 @@
       iconAnchor: [14, 28],
       popupAnchor: [0, -28]
     });
-    L.marker(STATION, { icon: homeIcon })
-      .bindPopup(`<div class="popup-title">Home</div><div class="popup-dim">${STATION[0]}, ${STATION[1]}</div>`)
+    L.marker([STATION.lat, STATION.lon], { icon: homeIcon })
+      .bindPopup(`<div class="popup-title">Home</div><div class="popup-dim">${STATION.lat}, ${STATION.lon}</div>`)
       .addTo(map);
 
     // Load initial radar overlay
@@ -158,6 +158,14 @@
     return div.innerHTML;
   }
 
+  function showError(el, message, retryFn) {
+    el.innerHTML = `<div class="panel-error">
+      <p class="error-text">${escHtml(message)}</p>
+      <button class="retry-btn">Retry</button>
+    </div>`;
+    el.querySelector('.retry-btn').addEventListener('click', retryFn);
+  }
+
   // ── Weather ─────────────────────────────────────────────────────────────
   async function loadWeather() {
     const el = document.getElementById('weather-body');
@@ -208,7 +216,7 @@
       if (w.temperature != null) setStrip('sv-temp', w.temperature + '°F');
       if (w.windSpeed != null) setStrip('sv-wind', w.windSpeed + ' mph');
     } catch (e) {
-      el.innerHTML = `<p class="error-text">Weather data unavailable: ${escHtml(e.message)}</p>`;
+      showError(el, `Weather data unavailable: ${e.message}`, loadWeather);
     }
   }
 
@@ -224,7 +232,7 @@
           <span class="forecast-short" title="${escHtml(p.detailedForecast)}">${escHtml(p.shortForecast)}</span>
         </div>`).join('')}</div>`;
     } catch (e) {
-      el.innerHTML = `<p class="error-text">Forecast unavailable: ${escHtml(e.message)}</p>`;
+      showError(el, `Forecast unavailable: ${e.message}`, loadForecast);
     }
   }
 
@@ -280,7 +288,7 @@
         });
       }
     } catch (e) {
-      el.innerHTML = `<p class="error-text">Alerts unavailable: ${escHtml(e.message)}</p>`;
+      showError(el, `Alerts unavailable: ${e.message}`, loadAlerts);
     }
   }
 
@@ -333,7 +341,7 @@
         });
       }
     } catch (e) {
-      el.innerHTML = `<p class="error-text">ADS-B unavailable: ${escHtml(e.message)}</p>`;
+      showError(el, `ADS-B unavailable: ${e.message}`, loadAdsb);
     }
   }
 
@@ -368,7 +376,7 @@
         });
       }
     } catch (e) {
-      el.innerHTML = `<p class="error-text">Gauge data unavailable: ${escHtml(e.message)}</p>`;
+      showError(el, `Gauge data unavailable: ${e.message}`, loadGauges);
     }
   }
 
@@ -404,7 +412,7 @@
         <div class="timestamp">${closed.length} closed · ${caution.length} caution</div>
       `;
     } catch (e) {
-      el.innerHTML = `<p class="error-text">Flood data unavailable: ${escHtml(e.message)}</p>`;
+      showError(el, `Flood data unavailable: ${e.message}`, loadFloods);
     }
   }
 
@@ -437,7 +445,7 @@
         setIndClass('ind-aqi', worst.aqi > 100 ? 'danger' : worst.aqi > 50 ? 'warn' : 'ok');
       }
     } catch (e) {
-      el.innerHTML = `<p class="error-text">AQI unavailable: ${escHtml(e.message)}</p>`;
+      showError(el, `AQI unavailable: ${e.message}`, loadAqi);
     }
   }
 
@@ -466,7 +474,7 @@
       setStrip('sv-grid', gridLabel, gCls);
       setIndClass('ind-grid', statusCls === 'emergency' ? 'danger' : statusCls === 'warning' ? 'warn' : 'ok');
     } catch (e) {
-      el.innerHTML = `<p class="error-text">ERCOT data unavailable: ${escHtml(e.message)}</p>`;
+      showError(el, `ERCOT data unavailable: ${e.message}`, loadErcot);
     }
   }
 
@@ -500,7 +508,7 @@
           </div>`;
       }).join('')}</div>`;
     } catch (e) {
-      el.innerHTML = `<p class="error-text">Airport data unavailable: ${escHtml(e.message)}</p>`;
+      showError(el, `Airport data unavailable: ${e.message}`, loadAirports);
     }
   }
 
@@ -535,7 +543,7 @@
 
       el.innerHTML = html;
     } catch (e) {
-      el.innerHTML = `<p class="error-text">SPC data unavailable: ${escHtml(e.message)}</p>`;
+      showError(el, `SPC data unavailable: ${e.message}`, loadSpc);
     }
   }
 
@@ -560,7 +568,7 @@
         el.innerHTML = `<p class="info-text">${escHtml(JSON.stringify(d).substring(0, 300))}</p>`;
       }
     } catch (e) {
-      el.innerHTML = `<p class="error-text">Tropical data unavailable: ${escHtml(e.message)}</p>`;
+      showError(el, `Tropical data unavailable: ${e.message}`, loadTropical);
     }
   }
 
@@ -601,7 +609,7 @@
         });
       }
     } catch (e) {
-      el.innerHTML = `<p class="error-text">Earthquake data unavailable: ${escHtml(e.message)}</p>`;
+      showError(el, `Earthquake data unavailable: ${e.message}`, loadEarthquakes);
     }
   }
 
@@ -646,7 +654,7 @@
         setIndClass('ind-kp', kpV >= 5 ? 'danger' : kpV >= 4 ? 'warn' : 'ok');
       }
     } catch (e) {
-      el.innerHTML = `<p class="error-text">Space weather unavailable</p>`;
+      showError(el, 'Space weather unavailable', loadSpaceWeather);
     }
   }
 
@@ -674,7 +682,7 @@
         </div>
       `;
     } catch (e) {
-      el.innerHTML = `<p class="error-text">HF propagation unavailable: ${escHtml(e.message)}</p>`;
+      showError(el, `HF propagation unavailable: ${e.message}`, loadHfProp);
     }
   }
 
@@ -687,16 +695,23 @@
         <div class="satellite-view">
           <img class="satellite-img" id="sat-img" src="${d.visibleUrl}" alt="GOES-16 ${d.sector}" loading="lazy">
           <div class="satellite-controls">
-            <button class="sat-btn active" onclick="document.getElementById('sat-img').src='${d.visibleUrl}';document.querySelectorAll('.sat-btn').forEach(b=>b.classList.remove('active'));this.classList.add('active')">Visible</button>
-            <button class="sat-btn" onclick="document.getElementById('sat-img').src='${d.infraredUrl}';document.querySelectorAll('.sat-btn').forEach(b=>b.classList.remove('active'));this.classList.add('active')">Infrared</button>
-            <button class="sat-btn" onclick="document.getElementById('sat-img').src='${d.waterVaporUrl}';document.querySelectorAll('.sat-btn').forEach(b=>b.classList.remove('active'));this.classList.add('active')">Water Vapor</button>
+            <button class="sat-btn active" data-sat-url="${d.visibleUrl}">Visible</button>
+            <button class="sat-btn" data-sat-url="${d.infraredUrl}">Infrared</button>
+            <button class="sat-btn" data-sat-url="${d.waterVaporUrl}">Water Vapor</button>
             <a href="${d.loopUrl}" target="_blank" rel="noopener" class="sat-btn">Loop →</a>
           </div>
           <div class="timestamp">${escHtml(d.satellite)} — ${escHtml(d.sector)}</div>
         </div>
       `;
+      el.querySelectorAll('button[data-sat-url]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.getElementById('sat-img').src = btn.dataset.satUrl;
+          el.querySelectorAll('.sat-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+        });
+      });
     } catch (e) {
-      el.innerHTML = `<p class="error-text">Satellite imagery unavailable: ${escHtml(e.message)}</p>`;
+      showError(el, `Satellite imagery unavailable: ${e.message}`, loadSatellite);
     }
   }
 
@@ -733,7 +748,7 @@
         });
       }
     } catch (e) {
-      el.innerHTML = `<p class="error-text">Wildfire data unavailable: ${escHtml(e.message)}</p>`;
+      showError(el, `Wildfire data unavailable: ${e.message}`, loadWildfires);
     }
   }
 
@@ -752,7 +767,7 @@
         el.innerHTML = `<p class="info-text">${escHtml(JSON.stringify(d).substring(0, 300))}</p>`;
       }
     } catch (e) {
-      el.innerHTML = `<p class="error-text">Emissions data unavailable: ${escHtml(e.message)}</p>`;
+      showError(el, `Emissions data unavailable: ${e.message}`, loadEmissions);
     }
   }
 

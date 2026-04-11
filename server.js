@@ -2,15 +2,28 @@ require('dotenv').config();
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
+const pinoHttp = require('pino-http');
+const logger = require('./src/logger');
+const config = require('./src/config');
+const apiLimiter = require('./src/middleware/rateLimiter');
 const apiRoutes = require('./routes/api');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = config.port;
 
+app.use(pinoHttp({
+  logger,
+  serializers: {
+    req(req) {
+      const url = req.url && req.url.split('?')[0];
+      return { id: req.id, method: req.method, url };
+    },
+  },
+}));
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-app.use('/api', apiRoutes);
+app.use('/api', apiLimiter, apiRoutes);
 
 app.get('/', (_req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
@@ -26,10 +39,10 @@ if (fs.existsSync(certPath) && fs.existsSync(keyPath)) {
     key: fs.readFileSync(keyPath),
   };
   https.createServer(options, app).listen(PORT, () => {
-    console.log(`OES Dashboard running on https://localhost:${PORT}`);
+    logger.info({ port: PORT, tls: true }, 'OES Dashboard running');
   });
 } else {
   app.listen(PORT, () => {
-    console.log(`OES Dashboard running on http://localhost:${PORT}`);
+    logger.info({ port: PORT, tls: false }, 'OES Dashboard running');
   });
 }

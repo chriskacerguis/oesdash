@@ -842,6 +842,10 @@ a.ph-link:hover {
 .ext-link:hover { text-decoration: underline; }
 .info-text { font-size: 0.75rem; color: var(--text-dim); line-height: 1.4; }
 .error-text { color: var(--red); font-size: 0.75rem; }
+.panel-error { display: flex; align-items: center; gap: 0.5rem; padding: 0.25rem 0; }
+.panel-error .error-text { margin: 0; }
+.retry-btn { background: transparent; color: var(--accent); border: 1px solid var(--accent); border-radius: 4px; padding: 0.15rem 0.5rem; font-size: 0.65rem; cursor: pointer; white-space: nowrap; }
+.retry-btn:hover { background: var(--accent); color: var(--bg); }
 .timestamp { font-size: 0.58rem; color: var(--text-dim); font-family: var(--mono); margin-top: 0.3rem; }
 
 /* -- RESPONSIVE --------------------------------------------------------- */
