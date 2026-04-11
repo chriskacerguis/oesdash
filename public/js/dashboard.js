@@ -18,7 +18,14 @@
   const STATION = [30.2672, -97.7431];
   let map, radarLayer, gaugesLayer, quakesLayer, firesLayer, alertsLayer, flightsLayer;
 
-  function initMap() {
+  async function initMap() {
+    // Fetch station location from server config
+    try {
+      const cfg = await api('/config');
+      STATION[0] = cfg.lat;
+      STATION[1] = cfg.lon;
+    } catch { /* use defaults */ }
+
     map = L.map('map', { zoomControl: true, attributionControl: false }).setView(STATION, 12);
     L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', {
       maxZoom: 19,
@@ -34,9 +41,16 @@
     alertsLayer = L.layerGroup();
     flightsLayer= L.layerGroup();
 
-    // Station marker
-    L.circleMarker(STATION, { radius: 6, color: '#fff', fillColor: '#3b82f6', fillOpacity: 1, weight: 2 })
-      .bindPopup('<div class="popup-title">OES Station</div><div class="popup-dim">30.2672, -97.7431</div>')
+    // Home marker (house icon)
+    const homeIcon = L.divIcon({
+      className: 'map-marker-home',
+      html: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#3b82f6" width="28" height="28"><path d="M12 3L2 12h3v8h6v-6h2v6h6v-8h3L12 3z"/></svg>',
+      iconSize: [28, 28],
+      iconAnchor: [14, 28],
+      popupAnchor: [0, -28]
+    });
+    L.marker(STATION, { icon: homeIcon })
+      .bindPopup(`<div class="popup-title">Home</div><div class="popup-dim">${STATION[0]}, ${STATION[1]}</div>`)
       .addTo(map);
 
     // Load initial radar overlay

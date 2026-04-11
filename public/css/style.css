@@ -364,6 +364,12 @@ body {
   filter: drop-shadow(0 0 2px rgba(0,0,0,0.8));
 }
 
+.map-marker-home {
+  background: none !important;
+  border: none !important;
+  filter: drop-shadow(0 0 4px rgba(59,130,246,0.7)) drop-shadow(0 0 1px rgba(0,0,0,0.9));
+}
+
 .leaflet-popup-content-wrapper {
   background: var(--bg-panel) !important;
   color: var(--text) !important;

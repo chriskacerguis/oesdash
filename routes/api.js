@@ -14,6 +14,11 @@ const AW_API_KEY = process.env.AMBIENT_API_KEY || '';
 
 const nwsHeaders = { 'User-Agent': 'OES-Dashboard/1.0 (emergency-ops@localhost)', Accept: 'application/geo+json' };
 
+// ── Public config (safe to expose to frontend) ──────────────────────────────
+router.get('/config', (_req, res) => {
+  res.json({ lat: +LAT, lon: +LON });
+});
+
 // Simple in-memory cache
 const cache = {};
 function cached(key, ttlMs, fetcher) {
@@ -118,10 +123,32 @@ router.get('/weather/forecast', cached('weather_forecast', 600_000, async () => 
   return data.properties.periods.slice(0, 8);
 }));
 
-// ── NWS Alerts (Austin area) ────────────────────────────────────────────────
-router.get('/weather/alerts', cached('weather_alerts', 60_000, async () => {
+// ── Resolve local NWS zone IDs (cached indefinitely) ────────────────────────
+let localZoneIds = null;
+async function getLocalZones() {
+  if (localZoneIds) return localZoneIds;
   const { data } = await axios.get(
-    `https://api.weather.gov/alerts/active?point=${LAT},${LON}`,
+    `https://api.weather.gov/points/${LAT},${LON}`,
+    { headers: nwsHeaders, timeout: 10000 }
+  );
+  const props = data.properties;
+  const zones = new Set();
+  // Extract zone ID from full URL (e.g. "https://api.weather.gov/zones/forecast/TXZ192" → "TXZ192")
+  for (const url of [props.forecastZone, props.county, props.fireWeatherZone]) {
+    if (url) {
+      const id = url.split('/').pop();
+      if (id) zones.add(id);
+    }
+  }
+  localZoneIds = [...zones];
+  return localZoneIds;
+}
+
+// ── NWS Alerts (local zones only) ───────────────────────────────────────────
+router.get('/weather/alerts', cached('weather_alerts', 60_000, async () => {
+  const zones = await getLocalZones();
+  const { data } = await axios.get(
+    `https://api.weather.gov/alerts/active?zone=${zones.join(',')}`,
     { headers: nwsHeaders }
   );
   return data.features.map(f => ({
@@ -379,6 +406,41 @@ router.get('/floods', cached('atxfloods', 120_000, async () => {
   }
 }));
 
+// ── Point-in-polygon (ray-casting) for SPC outlook filtering ────────────────
+function pointInRing(point, ring) {
+  const [px, py] = point;
+  let inside = false;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const [xi, yi] = ring[i];
+    const [xj, yj] = ring[j];
+    if ((yi > py) !== (yj > py) && px < ((xj - xi) * (py - yi)) / (yj - yi) + xi) {
+      inside = !inside;
+    }
+  }
+  return inside;
+}
+
+function pointInGeometry(point, geometry) {
+  if (!geometry) return false;
+  if (geometry.type === 'Polygon') {
+    return pointInRing(point, geometry.coordinates[0]);
+  }
+  if (geometry.type === 'MultiPolygon') {
+    return geometry.coordinates.some(poly => pointInRing(point, poly[0]));
+  }
+  return false;
+}
+
+const SPC_RISK_ORDER = ['TSTM', 'MRGL', 'SLGT', 'ENH', 'MDT', 'HIGH'];
+const SPC_RISK_LABELS = {
+  TSTM: 'General Thunderstorms',
+  MRGL: 'Marginal Risk',
+  SLGT: 'Slight Risk',
+  ENH: 'Enhanced Risk',
+  MDT: 'Moderate Risk',
+  HIGH: 'High Risk',
+};
+
 // ── SPC Severe Weather Outlooks ─────────────────────────────────────────────
 router.get('/spc', cached('spc_outlooks', 600_000, async () => {
   const [dayOneRes, mdRes] = await Promise.allSettled([
@@ -389,12 +451,30 @@ router.get('/spc', cached('spc_outlooks', 600_000, async () => {
   let dayOneOutlook = null;
   if (dayOneRes.status === 'fulfilled') {
     const features = dayOneRes.value.data.features || [];
-    // Find the highest risk level that covers our area, or just return all categories
-    dayOneOutlook = features.map(f => ({
-      category: f.properties.LABEL || f.properties.LABEL2 || f.properties.cat,
-      stroke: f.properties.stroke,
-      fill: f.properties.fill,
-    }));
+    const stationPoint = [+LON, +LAT]; // GeoJSON uses [lon, lat]
+    // Only include categories whose polygon covers our location
+    const local = features.filter(f => pointInGeometry(stationPoint, f.geometry));
+    if (local.length) {
+      // Return only the highest applicable risk level
+      let highest = null;
+      for (const f of local) {
+        const cat = (f.properties.LABEL || f.properties.LABEL2 || f.properties.cat || '').replace(/\s/g, '').toUpperCase();
+        const rank = SPC_RISK_ORDER.indexOf(cat);
+        if (!highest || rank > SPC_RISK_ORDER.indexOf(highest.catKey)) {
+          highest = { catKey: cat, feature: f };
+        }
+      }
+      if (highest) {
+        const f = highest.feature;
+        const rawCat = f.properties.LABEL || f.properties.LABEL2 || f.properties.cat || '';
+        const label = SPC_RISK_LABELS[highest.catKey] || rawCat;
+        dayOneOutlook = [{
+          category: label,
+          stroke: f.properties.stroke,
+          fill: f.properties.fill,
+        }];
+      }
+    }
   }
 
   let discussions = [];
@@ -432,9 +512,10 @@ router.get('/tropical', cached('nhc_tropical', 600_000, async () => {
       );
       return data;
     } catch {
-      // Fallback to NWS alerts for tropical
+      // Fallback to NWS alerts for tropical — filtered to local zones only
+      const zones = await getLocalZones();
       const { data } = await axios.get(
-        'https://api.weather.gov/alerts/active?event=Tropical%20Storm%20Warning,Hurricane%20Warning,Tropical%20Storm%20Watch,Hurricane%20Watch',
+        `https://api.weather.gov/alerts/active?zone=${zones.join(',')}&event=Tropical%20Storm%20Warning,Hurricane%20Warning,Tropical%20Storm%20Watch,Hurricane%20Watch`,
         { timeout: 10000, headers: nwsHeaders }
       );
       return {
