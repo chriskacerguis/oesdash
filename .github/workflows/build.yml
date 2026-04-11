@@ -35,8 +35,8 @@ jobs:
     if: github.event_name != 'pull_request'
     uses: chriskacerguis/build/.github/workflows/build.yml@main
     with:
-      image_title: ARESnet Logger
-      image_description: Logging systems build for ARES / EmComm ham radio nets
+      image_title: OES Dashboard
+      image_description: Situational Dashboard for Emergency Stations
     permissions:
       contents: read
       packages: write

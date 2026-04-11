@@ -10,64 +10,30 @@ A real-time situational awareness dashboard for emergency operations, built with
 
 | Panel | Source | Description |
 |---|---|---|
-| **Weather Station** | NWS API | Temperature, humidity, wind, barometric pressure, precipitation, visibility |
-| **Forecast** | NWS API | 8-period forecast from the NWS gridpoint API |
-| **NWS Radar** | NWS KEWX | Level 3 radar imagery (reflectivity, storm-relative velocity) |
-| **NWS Alerts / NOAA Radio** | NWS Alerts API | Active warnings and watches with scrolling banner |
-| **ADS-B Aircraft** | Local dump1090 | Tracks aircraft in the Austin terminal area (air tankers, helicopters) |
-| **APRS Feed (RX)** | aprs.fi | Receive-only 144.390 MHz — ARES/RACES asset and weather station tracking |
-| **USGS Stream Gauges** | USGS Water Services | Barton Creek, Onion Creek, Brushy Creek, Colorado River — stage and flow |
-| **ATXFloods** | ATXFloods API | Low-water crossing and road closure status |
-| **Air Quality** | AirNow API | AQI for wildfire smoke tracking |
+| **Weather Station** | NWS / Ambient Weather | Temperature, humidity, wind, barometric pressure, precipitation, visibility |
+| **Forecast** | NWS API | 8-period forecast (auto-resolved from lat/lon) |
+| **NWS Alerts** | NWS Alerts API | Active warnings and watches with scrolling banner |
+| **SPC Outlook** | SPC | Convective outlook categories |
+| **Tropical** | NHC | Active tropical cyclone advisories |
+| **Radar / Satellite** | RainViewer / GOES | Interactive Leaflet map with radar overlay and satellite imagery |
+| **ADS-B Aircraft** | Local receiver | Tracks aircraft via dump1090/readsb/FR24 feeder |
+| **Airports** | FAA AWC | METAR, flight categories, delays for nearby airports |
+| **USGS Stream Gauges** | USGS Water Services | Stage and flow for nearby waterways |
+| **Low-Water Crossings** | ATXFloods API | Road closure status within 30 miles |
+| **Air Quality** | AirNow API | AQI for PM2.5, ozone, and other pollutants |
 | **ERCOT Grid** | ERCOT API | Grid demand, capacity, reserves, and emergency status |
-| **External Resources** | Various | TFS/TCEQ fire maps, TxDOT DriveTexas, Travis County OEM GIS |
+| **Space Weather** | SWPC | Kp index, solar flux, X-ray flares |
+| **HF Propagation** | KC2G | MUF and foF2 propagation data |
+| **Earthquakes** | USGS | Recent seismic events within 100 miles, sorted by distance |
+| **Wildfires** | NIFC | Active fire perimeters within 100 miles |
 
 All panels auto-refresh on independent intervals (15 seconds to 10 minutes depending on data source).
 
 ---
 
-## Requirements
-
-- **Node.js** 18 or later
-- **npm** (included with Node.js)
-
-### Optional Hardware / Services
-
-- **ADS-B Receiver** — A dump1090-compatible receiver (e.g. RTL-SDR with dump1090-fa or readsb) serving JSON on a local network endpoint.
-- **AirNow API Key** — Free. Register at <https://docs.airnowapi.org/account/request/>
-
----
-
-## Quick Start
-
-```bash
-# Clone the repo
-git clone <your-repo-url>
-cd oes-dashboard
-
-# Install dependencies
-npm install
-
-# Create your environment config
-cp .env.example .env
-
-# Start the server
-npm start
-```
-
-Open **http://localhost:3000** in a browser.
-
-For development with auto-reload on file changes:
-
-```bash
-npm run dev
-```
-
----
-
 ## Configuration
 
-All configuration is done via environment variables in the `.env` file. Copy `.env.example` to get started:
+All configuration is done via environment variables. Copy `.env.example` to `.env` and edit:
 
 ```bash
 cp .env.example .env
@@ -75,77 +41,74 @@ cp .env.example .env
 
 ### Environment Variables
 
-| Variable | Default | Description |
-|---|---|---|
-| `PORT` | `3000` | HTTP port the dashboard listens on |
-| `STATION_LAT` | `30.2672` | Latitude for weather lookups (Austin, TX) |
-| `STATION_LON` | `-97.7431` | Longitude for weather lookups |
-| `NWS_OFFICE` | `EWX` | NWS forecast office identifier |
-| `NWS_GRID_X` | `157` | NWS grid X coordinate for your location |
-| `NWS_GRID_Y` | `95` | NWS grid Y coordinate for your location |
-| `AIRNOW_API_KEY` | *(empty)* | AirNow API key for air quality data |
-| `ADSB_URL` | `http://localhost:8080` | dump1090 / readsb JSON endpoint URL |
-| `APRS_HOST` | `rotate.aprs2.net` | APRS-IS server hostname |
-| `APRS_PORT` | `14580` | APRS-IS server port |
-| `APRS_FILTER` | `r/30.2672/-97.7431/80` | APRS-IS filter string (80 km radius of Austin) |
+| Variable | Required | Default | Description |
+|---|---|---|---|
+| `PORT` | No | `3000` | HTTP port the dashboard listens on |
+| `STATION_LAT` | **Yes** | `30.2672` | Latitude — sets map center and all location-based queries |
+| `STATION_LON` | **Yes** | `-97.7431` | Longitude — sets map center and all location-based queries |
+| `AMBIENT_APP_KEY` | No | *(empty)* | Ambient Weather application key (for personal weather station) |
+| `AMBIENT_API_KEY` | No | *(empty)* | Ambient Weather user API key |
+| `AIRNOW_API_KEY` | No | *(empty)* | AirNow API key for air quality data |
+| `ADSB_URL` | No | `http://localhost:8754` | dump1090 / readsb / FR24 feeder JSON endpoint |
+| `APRS_HOST` | No | `rotate.aprs2.net` | APRS-IS server hostname |
+| `APRS_PORT` | No | `14580` | APRS-IS server port |
+| `APRS_FILTER` | No | `r/30.2672/-97.7431/80` | APRS-IS filter string |
 
-### Finding Your NWS Grid Coordinates
+The NWS forecast office and grid coordinates are **resolved automatically** from `STATION_LAT`/`STATION_LON` — no manual lookup needed.
 
-To use this dashboard for a different location, you need the NWS gridpoint values:
+### API Keys
+
+| Key | Where to get it |
+|---|---|
+| Ambient Weather | <https://ambientweather.net/account> — you need both an Application Key and an API Key |
+| AirNow | <https://docs.airnowapi.org/account/request/> — free |
+
+---
+
+## Deploy with Docker
+
+### Prerequisites
+
+- Docker and Docker Compose installed
+- A configured `.env` file
+
+### Start
 
 ```bash
-curl -s "https://api.weather.gov/points/YOUR_LAT,YOUR_LON" | jq '.properties | {office: .gridId, gridX: .gridX, gridY: .gridY}'
+cp .env.example .env   # edit with your values
+docker compose up -d
 ```
 
-Example for Austin:
+The dashboard will be available at **http://localhost:3000** (or whatever `PORT` you set).
 
-```json
-{
-  "office": "EWX",
-  "gridX": 157,
-  "gridY": 95
-}
+### Rebuild after changes
+
+```bash
+docker compose up -d --build
 ```
 
----
+### Stop
 
-## Project Structure
-
-```
-oes-dashboard/
-├── server.js              # Express app entry point
-├── routes/
-│   └── api.js             # All API routes (/api/weather/*, /api/gauges, etc.)
-├── public/
-│   ├── index.html         # Dashboard HTML
-│   ├── css/
-│   │   └── style.css      # Dark ops-center theme
-│   └── js/
-│       └── dashboard.js   # Client-side fetch + rendering logic
-├── .env.example           # Environment variable template
-├── .env                   # Your local config (not committed)
-├── package.json
-└── README.md
+```bash
+docker compose down
 ```
 
----
+### docker-compose.yml
 
-## API Endpoints
+```yaml
+services:
+  dashboard:
+    build: .
+    ports:
+      - "${PORT:-3000}:3000"
+    env_file:
+      - .env
+    restart: unless-stopped
+```
 
-All endpoints are prefixed with `/api`.
+### Dockerfile
 
-| Endpoint | Method | Description | Cache TTL |
-|---|---|---|---|
-| `/api/weather/current` | GET | Current weather observations | 2 min |
-| `/api/weather/forecast` | GET | 8-period NWS forecast | 10 min |
-| `/api/weather/alerts` | GET | Active NWS alerts for the area | 1 min |
-| `/api/weather/radar` | GET | Radar imagery URLs for KEWX | 2 min |
-| `/api/gauges` | GET | USGS stream gauge readings | 5 min |
-| `/api/aqi` | GET | AirNow air quality index | 10 min |
-| `/api/ercot` | GET | ERCOT grid status | 5 min |
-| `/api/adsb` | GET | ADS-B aircraft from local receiver | 10 sec |
-| `/api/floods` | GET | ATXFloods low-water crossing status | 2 min |
-| `/api/links` | GET | External resource links | Static |
+Uses `node:22-alpine` for a minimal image. Dependencies are installed with `npm ci --omit=dev` and the app runs as `node server.js` on port 3000.
 
 ---
 
@@ -153,36 +116,34 @@ All endpoints are prefixed with `/api`.
 
 The dashboard expects a dump1090-compatible JSON endpoint. Common setups:
 
-1. **dump1090-fa** (FlightAware) — serves on port 8080 by default
-2. **readsb** — drop-in replacement, same JSON format
-3. **tar1090** — enhanced web UI, same JSON backend
+- **dump1090-fa** (FlightAware) — port 8080
+- **readsb** — drop-in replacement, same JSON format
+- **FlightRadar24 feeder** — port 8754
 
 Set `ADSB_URL` in `.env` to your receiver's address:
 
 ```env
-ADSB_URL=http://192.168.1.100:8080
+ADSB_URL=http://192.168.1.100:8754
 ```
 
-The dashboard reads `{ADSB_URL}/data/aircraft.json`.
-
-If no receiver is configured, the ADS-B panel will display a placeholder with setup instructions.
+If no receiver is available, the ADS-B panel will show a placeholder.
 
 ---
 
 ## Data Sources & Attribution
 
-| Source | Website | Notes |
+| Source | Website | Key Required |
 |---|---|---|
-| National Weather Service | <https://www.weather.gov> | Free, no key required. Requires `User-Agent` header. |
-| USGS Water Services | <https://waterservices.usgs.gov> | Free, no key required |
-| AirNow | <https://www.airnow.gov> | Free API key required |
-| ERCOT | <https://www.ercot.com> | Public dashboard data |
-| ATXFloods | <https://www.atxfloods.com> | City of Austin / Travis County |
-| Texas A&M Forest Service | <https://texasforestservice.tamu.edu> | Wildfire perimeter maps |
-| TCEQ | <https://www.tceq.texas.gov> | Prescribed burn maps |
-| TxDOT DriveTexas | <https://drivetexas.org> | Road conditions |
-| Travis County OEM | <https://www.traviscountytx.gov/emergency-services> | GIS feeds |
-| APRS.fi | <https://aprs.fi> | APRS station tracking |
+| National Weather Service | <https://www.weather.gov> | No |
+| USGS Water Services | <https://waterservices.usgs.gov> | No |
+| USGS Earthquakes | <https://earthquake.usgs.gov> | No |
+| AirNow | <https://www.airnow.gov> | Yes (free) |
+| ERCOT | <https://www.ercot.com> | No |
+| ATXFloods | <https://www.atxfloods.com> | No |
+| NIFC Wildfires | <https://data-nifc.opendata.arcgis.com> | No |
+| NOAA SWPC | <https://www.swpc.noaa.gov> | No |
+| KC2G Propagation | <https://prop.kc2g.com> | No |
+| Ambient Weather | <https://ambientweather.net> | Yes (free) |
 
 ---
 
