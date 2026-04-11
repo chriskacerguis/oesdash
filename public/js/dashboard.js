@@ -570,10 +570,10 @@
     try {
       const d = await api('/earthquakes');
       if (!d.events || !d.events.length) {
-        el.innerHTML = '<p class="no-alerts">✓ No recent earthquakes within 50 miles</p>';
+        el.innerHTML = '<p class="no-alerts">✓ No recent earthquakes within 100 miles</p>';
         return;
       }
-      el.innerHTML = `<div class="quake-list">${d.events.slice(0, 8).map(q => {
+      el.innerHTML = `<div class="quake-list">${d.events.slice(0, 12).map(q => {
         const mag = q.magnitude || 0;
         const cls = mag >= 5 ? 'major' : mag >= 4 ? 'strong' : mag >= 3 ? 'moderate' : 'low';
         return `
@@ -581,7 +581,7 @@
             <div class="quake-mag ${cls}">${mag.toFixed(1)}</div>
             <div class="quake-info">
               <div class="quake-place">${escHtml(q.place || 'Unknown')}</div>
-              <div class="quake-meta">${fmtTime(q.time)} · ${q.depth ? q.depth.toFixed(1) + ' km deep' : ''}</div>
+              <div class="quake-meta">${q.distMi ? q.distMi + ' mi · ' : ''}${fmtTime(q.time)} · ${q.depth ? q.depth.toFixed(1) + ' km deep' : ''}</div>
             </div>
           </div>`;
       }).join('')}</div>
@@ -706,10 +706,10 @@
     try {
       const d = await api('/wildfires');
       if (!d.fires || !d.fires.length) {
-        el.innerHTML = '<p class="no-alerts">✓ No active wildfires in the region</p>';
+        el.innerHTML = '<p class="no-alerts">✓ No active wildfires within 100 miles</p>';
         return;
       }
-      el.innerHTML = `<div class="fire-list">${d.fires.slice(0, 8).map(f => {
+      el.innerHTML = `<div class="fire-list">${d.fires.slice(0, 10).map(f => {
         const pct = f.contained ?? 0;
         const cls = pct >= 75 ? 'high' : pct >= 25 ? 'medium' : 'low';
         return `
@@ -737,31 +737,6 @@
     }
   }
 
-  // ── River Forecasts ───────────────────────────────────────────────────
-  async function loadRiverForecast() {
-    const el = document.getElementById('riverforecast-body');
-    try {
-      const gauges = await api('/riverforecast');
-      el.innerHTML = `<div class="river-list">${gauges.map(g => {
-        if (g.error) {
-          return `<div class="river-item"><span class="river-name">${escHtml(g.name)}</span><p class="info-text">${escHtml(g.error)}</p></div>`;
-        }
-        const inFlood = g.floodStage && g.latestObserved && g.latestObserved.value >= g.floodStage;
-        return `
-          <div class="river-item ${inFlood ? 'river-flood-danger' : ''}">
-            <div class="river-header">
-              <span class="river-name">${escHtml(g.name)}</span>
-              <span class="river-stage">${g.latestObserved ? g.latestObserved.value + ' ft' : '—'}</span>
-            </div>
-            ${g.floodStage ? `<div class="river-flood-marker">Flood stage: ${g.floodStage} ft</div>` : ''}
-            ${g.forecast && g.forecast.length ? `<div class="river-flood-marker">Forecast: ${g.forecast.map(f => f.value + ' ft').join(' → ')}</div>` : ''}
-          </div>`;
-      }).join('')}</div>`;
-    } catch (e) {
-      el.innerHTML = `<p class="error-text">River forecast unavailable: ${escHtml(e.message)}</p>`;
-    }
-  }
-
   // ── TCEQ Emissions ────────────────────────────────────────────────────
   async function loadEmissions() {
     const el = document.getElementById('emissions-body');
@@ -783,32 +758,11 @@
 
   // ── Sun & Moon ────────────────────────────────────────────────────────
   async function loadSun() {
-    const el = document.getElementById('sun-body');
     try {
       const d = await api('/sun');
-      const phaseEmoji = (d.moonPhase || '').toLowerCase().includes('new') ? '🌑'
-        : (d.moonPhase || '').toLowerCase().includes('full') ? '🌕'
-        : (d.moonPhase || '').toLowerCase().includes('first') ? '🌓'
-        : (d.moonPhase || '').toLowerCase().includes('last') || (d.moonPhase || '').toLowerCase().includes('third') ? '🌗'
-        : (d.moonPhase || '').toLowerCase().includes('waxing crescent') ? '🌒'
-        : (d.moonPhase || '').toLowerCase().includes('waxing gibbous') ? '🌔'
-        : (d.moonPhase || '').toLowerCase().includes('waning gibbous') ? '🌖'
-        : (d.moonPhase || '').toLowerCase().includes('waning crescent') ? '🌘'
-        : '🌙';
-
-      el.innerHTML = `
-        <div class="sun-grid">
-          <div class="sun-item"><div class="emoji">🌅</div><div class="time-val">${escHtml(d.sunrise || '—')}</div><div class="label">Sunrise</div></div>
-          <div class="sun-item"><div class="emoji">🌇</div><div class="time-val">${escHtml(d.sunset || '—')}</div><div class="label">Sunset</div></div>
-          ${d.moonPhase ? `<div class="moon-phase"><div class="emoji">${phaseEmoji}</div><div class="phase-name">${escHtml(d.moonPhase)}</div></div>` : ''}
-        </div>
-      `;
-
-      // Status strip: SUN
-      if (d.sunset) setStrip('sv-sun', '↓' + d.sunset);
-    } catch (e) {
-      el.innerHTML = `<p class="error-text">Sun/Moon data unavailable: ${escHtml(e.message)}</p>`;
-    }
+      if (d.sunrise) setStrip('sv-sunrise', d.sunrise);
+      if (d.sunset) setStrip('sv-sunset', d.sunset);
+    } catch { /* silent */ }
   }
 
   // ── Initialization & Refresh ────────────────────────────────────────────
@@ -832,7 +786,6 @@
     loadHfProp();
     loadSatellite();
     loadWildfires();
-    loadRiverForecast();
     loadEmissions();
     loadSun();
   }
@@ -857,7 +810,6 @@
   setInterval(loadHfProp, 5 * 60 * 1000);
   setInterval(loadSatellite, 5 * 60 * 1000);
   setInterval(loadWildfires, 10 * 60 * 1000);
-  setInterval(loadRiverForecast, 10 * 60 * 1000);
   setInterval(loadEmissions, 10 * 60 * 1000);
   setInterval(loadSun, 60 * 60 * 1000);
 

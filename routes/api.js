@@ -573,22 +573,30 @@ router.get('/tropical', cached('nhc_tropical', 600_000, async () => {
 // ── USGS Earthquakes ────────────────────────────────────────────────────────
 router.get('/earthquakes', cached('usgs_earthquakes', 300_000, async () => {
   const { data } = await axios.get(
-    `https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&latitude=${LAT}&longitude=${LON}&maxradiuskm=80&minmagnitude=2.0&orderby=time&limit=20`,
+    `https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&latitude=${LAT}&longitude=${LON}&maxradiuskm=161&minmagnitude=2.0&orderby=time&limit=20`,
     { timeout: 10000 }
   );
-  return {
-    count: data.metadata?.count || 0,
-    events: (data.features || []).map(f => ({
+  const events = (data.features || []).map(f => {
+    const eLat = f.geometry?.coordinates?.[1];
+    const eLon = f.geometry?.coordinates?.[0];
+    const dist = (eLat != null && eLon != null) ? distanceMiles(LAT, LON, eLat, eLon) : Infinity;
+    return {
       magnitude: f.properties.mag,
       place: f.properties.place,
       time: new Date(f.properties.time).toISOString(),
       depth: f.geometry?.coordinates?.[2],
-      lat: f.geometry?.coordinates?.[1],
-      lon: f.geometry?.coordinates?.[0],
+      lat: eLat,
+      lon: eLon,
       url: f.properties.url,
       felt: f.properties.felt,
       tsunami: f.properties.tsunami,
-    })),
+      distMi: Math.round(dist),
+    };
+  });
+  events.sort((a, b) => a.distMi - b.distMi);
+  return {
+    count: data.metadata?.count || 0,
+    events,
   };
 }));
 
@@ -724,67 +732,38 @@ router.get('/satellite', cached('goes_satellite', 300_000, async () => {
 }));
 
 // ── NIFC Active Wildfires ───────────────────────────────────────────────────
+const FIRE_RADIUS_MILES = 100;
 router.get('/wildfires', cached('nifc_wildfires', 600_000, async () => {
   const { data } = await axios.get(
     'https://services3.arcgis.com/T4QMspbfLg3qTGWY/arcgis/rest/services/WFIGS_Interagency_Perimeters/FeatureServer/0/query?where=1%3D1&outFields=poly_IncidentName,poly_Acres,poly_DateCurrent,irwin_FireDiscoveryDateTime,irwin_PercentContained,irwin_POOState&resultRecordCount=30&orderByFields=poly_DateCurrent DESC&f=json&geometry=-100,28,-94,33&geometryType=esriGeometryEnvelope&inSR=4326&spatialRel=esriSpatialRelIntersects&returnGeometry=true',
     { timeout: 15000 }
   );
+  const fires = (data.features || []).map(f => {
+    const a = f.attributes;
+    const g = f.geometry;
+    let lat = null, lon = null;
+    if (g && g.rings && g.rings[0]) {
+      const ring = g.rings[0];
+      lon = ring.reduce((s, p) => s + p[0], 0) / ring.length;
+      lat = ring.reduce((s, p) => s + p[1], 0) / ring.length;
+    }
+    const dist = (lat != null && lon != null) ? distanceMiles(LAT, LON, lat, lon) : Infinity;
+    return {
+      name: a.poly_IncidentName,
+      acres: a.poly_Acres,
+      contained: a.irwin_PercentContained,
+      state: a.irwin_POOState,
+      lat, lon,
+      distMi: Math.round(dist),
+      discovered: a.irwin_FireDiscoveryDateTime ? new Date(a.irwin_FireDiscoveryDateTime).toISOString() : null,
+      updated: a.poly_DateCurrent ? new Date(a.poly_DateCurrent).toISOString() : null,
+    };
+  }).filter(f => f.distMi <= FIRE_RADIUS_MILES);
+  fires.sort((a, b) => a.distMi - b.distMi);
   return {
-    fires: (data.features || []).map(f => {
-      const a = f.attributes;
-      const g = f.geometry;
-      // Compute centroid from polygon rings for map marker
-      let lat = null, lon = null;
-      if (g && g.rings && g.rings[0]) {
-        const ring = g.rings[0];
-        lon = ring.reduce((s, p) => s + p[0], 0) / ring.length;
-        lat = ring.reduce((s, p) => s + p[1], 0) / ring.length;
-      }
-      return {
-        name: a.poly_IncidentName,
-        acres: a.poly_Acres,
-        contained: a.irwin_PercentContained,
-        state: a.irwin_POOState,
-        lat, lon,
-        discovered: a.irwin_FireDiscoveryDateTime ? new Date(a.irwin_FireDiscoveryDateTime).toISOString() : null,
-        updated: a.poly_DateCurrent ? new Date(a.poly_DateCurrent).toISOString() : null,
-      };
-    }),
+    fires,
     nifcUrl: 'https://data-nifc.opendata.arcgis.com/',
   };
-}));
-
-// ── NWS River Forecasts ─────────────────────────────────────────────────────
-const RIVER_GAUGES = {
-  'Barton Creek at Loop 360': 'bcrt2',
-  'Onion Creek near Driftwood': 'onit2',
-  'Colorado River at Austin': 'atit2',
-};
-
-router.get('/riverforecast', cached('river_forecast', 600_000, async () => {
-  const results = [];
-  for (const [name, gaugeId] of Object.entries(RIVER_GAUGES)) {
-    try {
-      const { data } = await axios.get(
-        `https://api.water.noaa.gov/nwps/v1/gauges/${gaugeId}/stageflow`,
-        { timeout: 10000, headers: { Accept: 'application/json' } }
-      );
-      const obs = data.observed?.data || [];
-      const fcst = data.forecast?.data || [];
-      const flood = data.flood || {};
-      results.push({
-        name,
-        gaugeId,
-        floodStage: flood.stage ?? null,
-        floodCategory: flood.category ?? null,
-        latestObserved: obs.length ? { value: obs[obs.length - 1].primary, time: obs[obs.length - 1].validTime } : null,
-        forecast: fcst.slice(0, 6).map(f => ({ value: f.primary, time: f.validTime })),
-      });
-    } catch {
-      results.push({ name, gaugeId, error: 'Data unavailable' });
-    }
-  }
-  return results;
 }));
 
 // ── TCEQ Industrial Emissions Events ────────────────────────────────────────
