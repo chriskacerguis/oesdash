@@ -15,8 +15,27 @@ const AW_API_KEY = process.env.AMBIENT_API_KEY || '';
 const nwsHeaders = { 'User-Agent': 'OES-Dashboard/1.0 (emergency-ops@localhost)', Accept: 'application/geo+json' };
 
 // ── Public config (safe to expose to frontend) ──────────────────────────────
-router.get('/config', (_req, res) => {
-  res.json({ lat: +LAT, lon: +LON });
+let resolvedLocation = null;
+router.get('/config', async (_req, res) => {
+  if (!resolvedLocation) {
+    try {
+      const { data } = await axios.get(
+        `https://geocoding.geo.census.gov/geocoder/geographies/coordinates?x=${LON}&y=${LAT}&benchmark=Public_AR_Current&vintage=Current_Current&format=json`,
+        { timeout: 10000 }
+      );
+      const geo = data.result?.geographies;
+      const place = geo?.['Incorporated Places']?.[0] || geo?.['Census Designated Places']?.[0];
+      const county = geo?.['Counties']?.[0];
+      const state = geo?.['States']?.[0];
+      const city = place?.NAME || county?.NAME || null;
+      const stateAbbr = state?.STUSAB || null;
+      const cleanCity = city ? city.replace(/\s+CDP$/i, '').replace(/\s+city$/i, '') : null;
+      resolvedLocation = cleanCity && stateAbbr ? `${cleanCity}, ${stateAbbr}` : null;
+    } catch {
+      resolvedLocation = null;
+    }
+  }
+  res.json({ lat: +LAT, lon: +LON, location: resolvedLocation });
 });
 
 // Simple in-memory cache
@@ -380,6 +399,18 @@ router.get('/airports', cached('airport_status', 120_000, async () => {
   return airports;
 }));
 
+// ── Distance helper (Haversine, returns miles) ─────────────────────────────
+function distanceMiles(lat1, lon1, lat2, lon2) {
+  const toRad = d => d * Math.PI / 180;
+  const R = 3958.8; // Earth radius in miles
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+const FLOOD_RADIUS_MILES = 30;
+
 // ── ATXFloods Low-Water Crossings ───────────────────────────────────────────
 router.get('/floods', cached('atxfloods', 120_000, async () => {
   try {
@@ -389,16 +420,23 @@ router.get('/floods', cached('atxfloods', 120_000, async () => {
     );
     const crossings = data.attributes || data;
     if (Array.isArray(crossings)) {
-      return crossings.map(c => ({
-        name: c.name,
-        status: c.status || c.status_id,
-        address: c.address,
-        jurisdiction: c.jurisdiction,
-        comment: c.comment,
-        updatedAt: c.updated_at || c.updatedAt,
-        lat: c.lat || c.latitude,
-        lon: c.lon || c.longitude,
-      }));
+      const stLat = +LAT;
+      const stLon = +LON;
+      return crossings
+        .map(c => ({
+          name: c.name,
+          status: c.status || c.status_id,
+          address: c.address,
+          jurisdiction: c.jurisdiction,
+          comment: c.comment,
+          updatedAt: c.updated_at || c.updatedAt,
+          lat: c.lat || c.latitude,
+          lon: c.lon || c.longitude,
+        }))
+        .filter(c => {
+          if (c.lat == null || c.lon == null) return false;
+          return distanceMiles(stLat, stLon, +c.lat, +c.lon) <= FLOOD_RADIUS_MILES;
+        });
     }
     return crossings;
   } catch {
@@ -535,7 +573,7 @@ router.get('/tropical', cached('nhc_tropical', 600_000, async () => {
 // ── USGS Earthquakes ────────────────────────────────────────────────────────
 router.get('/earthquakes', cached('usgs_earthquakes', 300_000, async () => {
   const { data } = await axios.get(
-    'https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&latitude=30.2672&longitude=-97.7431&maxradiuskm=500&minmagnitude=2.0&orderby=time&limit=20',
+    `https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&latitude=${LAT}&longitude=${LON}&maxradiuskm=80&minmagnitude=2.0&orderby=time&limit=20`,
     { timeout: 10000 }
   );
   return {
@@ -556,16 +594,22 @@ router.get('/earthquakes', cached('usgs_earthquakes', 300_000, async () => {
 
 // ── NOAA Space Weather ──────────────────────────────────────────────────────
 router.get('/spaceweather', cached('space_weather', 300_000, async () => {
-  const [kpRes, alertRes, scaleRes] = await Promise.allSettled([
+  const [kpRes, alertRes, scaleRes, fluxRes] = await Promise.allSettled([
     axios.get('https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json', { timeout: 10000 }),
     axios.get('https://services.swpc.noaa.gov/products/alerts.json', { timeout: 10000 }),
     axios.get('https://services.swpc.noaa.gov/products/noaa-scales.json', { timeout: 10000 }),
+    axios.get('https://services.swpc.noaa.gov/products/summary/10cm-flux.json', { timeout: 10000 }),
   ]);
 
   let kpIndex = null;
   if (kpRes.status === 'fulfilled' && kpRes.value.data.length > 1) {
     const latest = kpRes.value.data[kpRes.value.data.length - 1];
-    kpIndex = { time: latest[0], kp: +latest[1], observed: latest[2] };
+    // Handle both old array format [time, kp, observed] and new object format {time_tag, Kp, ...}
+    if (Array.isArray(latest)) {
+      kpIndex = { time: latest[0], kp: +latest[1], observed: latest[2] };
+    } else if (latest && latest.time_tag != null) {
+      kpIndex = { time: latest.time_tag, kp: +latest.Kp, observed: latest.station_count };
+    }
   }
 
   let alerts = [];
@@ -592,10 +636,19 @@ router.get('/spaceweather', cached('space_weather', 300_000, async () => {
     };
   }
 
+  let solarFlux = null;
+  if (fluxRes.status === 'fulfilled' && fluxRes.value.data) {
+    const fd = fluxRes.value.data;
+    const entry = Array.isArray(fd) ? fd[0] : fd;
+    solarFlux = entry.flux || entry.Flux || null;
+    if (solarFlux) solarFlux = +solarFlux;
+  }
+
   return {
     kpIndex,
     alerts,
     scales,
+    solarFlux,
     swpcUrl: 'https://www.swpc.noaa.gov/',
   };
 }));

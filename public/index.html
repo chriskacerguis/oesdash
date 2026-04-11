@@ -17,7 +17,7 @@
       <div class="station-badge">OES</div>
       <div class="station-info">
         <h1>Official Emergency Station</h1>
-        <span class="subtitle">Austin, TX Metro — Situational Awareness</span>
+        <span class="subtitle" id="station-subtitle">Situational Awareness</span>
       </div>
     </div>
     <div class="status-strip" id="status-strip">
@@ -28,6 +28,7 @@
       <div class="s-ind" id="ind-kp" title="Kp Index"><span class="s-label">Kp</span><span class="s-val" id="sv-kp">—</span></div>
       <div class="s-ind" id="ind-alerts" title="Active Alerts"><span class="s-label">ALERTS</span><span class="s-val" id="sv-alerts">0</span></div>
       <div class="s-ind" id="ind-flights" title="Aircraft Tracked"><span class="s-label">A/C</span><span class="s-val" id="sv-flights">—</span></div>
+      <div class="s-ind" id="ind-gridsq" title="Maidenhead Grid Square"><span class="s-label">GRID SQ</span><span class="s-val" id="sv-gridsq">—</span></div>
       <div class="s-ind" id="ind-sun" title="Sunrise / Sunset"><span class="s-label">SUN</span><span class="s-val" id="sv-sun">—</span></div>
     </div>
     <div class="top-bar-right">
@@ -46,27 +47,27 @@
     <aside class="tac-left">
 
       <section class="panel" id="card-weather">
-        <div class="panel-hdr"><span class="ph-title">WEATHER STATION</span><span class="ph-src" id="weather-source-badge">NWS</span></div>
+        <div class="panel-hdr"><span class="ph-title">WEATHER STATION</span><a href="https://www.weather.gov/" target="_blank" rel="noopener" class="ph-src ph-link" id="weather-source-badge">NWS</a></div>
         <div class="panel-body" id="weather-body"><div class="loader"></div></div>
       </section>
 
       <section class="panel" id="card-forecast">
-        <div class="panel-hdr"><span class="ph-title">FORECAST</span><span class="ph-src">NWS</span></div>
+        <div class="panel-hdr"><span class="ph-title">FORECAST</span><a href="https://forecast.weather.gov/" target="_blank" rel="noopener" class="ph-src ph-link">NWS</a></div>
         <div class="panel-body" id="forecast-body"><div class="loader"></div></div>
       </section>
 
       <section class="panel" id="card-alerts">
-        <div class="panel-hdr"><span class="ph-title">NWS ALERTS</span><span class="ph-src">NWS</span></div>
+        <div class="panel-hdr"><span class="ph-title">NWS ALERTS</span><a href="https://alerts.weather.gov/" target="_blank" rel="noopener" class="ph-src ph-link">NWS</a></div>
         <div class="panel-body" id="alerts-body"><div class="loader"></div></div>
       </section>
 
       <section class="panel" id="card-spc">
-        <div class="panel-hdr"><span class="ph-title">SPC OUTLOOK</span><span class="ph-src">SPC</span></div>
+        <div class="panel-hdr"><span class="ph-title">SPC OUTLOOK</span><a href="https://www.spc.noaa.gov/" target="_blank" rel="noopener" class="ph-src ph-link">SPC</a></div>
         <div class="panel-body" id="spc-body"><div class="loader"></div></div>
       </section>
 
       <section class="panel" id="card-tropical">
-        <div class="panel-hdr"><span class="ph-title">TROPICAL</span><span class="ph-src">NHC</span></div>
+        <div class="panel-hdr"><span class="ph-title">TROPICAL</span><a href="https://www.nhc.noaa.gov/" target="_blank" rel="noopener" class="ph-src ph-link">NHC</a></div>
         <div class="panel-body" id="tropical-body"><div class="loader"></div></div>
       </section>
 
@@ -99,17 +100,17 @@
       <div class="center-bottom">
 
         <section class="panel panel-compact" id="card-gauges">
-          <div class="panel-hdr"><span class="ph-title">STREAM GAUGES</span><span class="ph-src">USGS</span></div>
+          <div class="panel-hdr"><span class="ph-title">STREAM GAUGES</span><a href="https://waterdata.usgs.gov/nwis" target="_blank" rel="noopener" class="ph-src ph-link">USGS</a></div>
           <div class="panel-body" id="gauges-body"><div class="loader"></div></div>
         </section>
 
         <section class="panel panel-compact" id="card-floods">
-          <div class="panel-hdr"><span class="ph-title">LOW-WATER CROSSINGS</span><span class="ph-src">ATXFloods</span></div>
+          <div class="panel-hdr"><span class="ph-title">LOW-WATER CROSSINGS (&lt;30mi)</span><a href="https://www.atxfloods.com" target="_blank" rel="noopener" class="ph-src ph-link">ATXFloods</a></div>
           <div class="panel-body" id="floods-body"><div class="loader"></div></div>
         </section>
 
         <section class="panel panel-compact" id="card-riverforecast">
-          <div class="panel-hdr"><span class="ph-title">RIVER FORECASTS</span><span class="ph-src">NWPS</span></div>
+          <div class="panel-hdr"><span class="ph-title">RIVER FORECASTS</span><a href="https://water.weather.gov/ahps/" target="_blank" rel="noopener" class="ph-src ph-link">NWPS</a></div>
           <div class="panel-body" id="riverforecast-body"><div class="loader"></div></div>
         </section>
 
@@ -121,33 +122,28 @@
     <aside class="tac-right">
 
       <section class="panel" id="card-adsb">
-        <div class="panel-hdr"><span class="ph-title">ADS-B TRACKING</span><span class="ph-src">FR24</span></div>
+        <div class="panel-hdr"><span class="ph-title">ADS-B TRACKING</span><a href="https://www.flightradar24.com/" target="_blank" rel="noopener" class="ph-src ph-link">FR24</a></div>
         <div class="panel-body" id="adsb-body"><div class="loader"></div></div>
       </section>
 
       <section class="panel" id="card-airports">
-        <div class="panel-hdr"><span class="ph-title">AIRPORTS</span><span class="ph-src">FAA / AWC</span></div>
+        <div class="panel-hdr"><span class="ph-title">AIRPORTS</span><a href="https://aviationweather.gov/" target="_blank" rel="noopener" class="ph-src ph-link">FAA / AWC</a></div>
         <div class="panel-body" id="airports-body"><div class="loader"></div></div>
       </section>
 
       <section class="panel" id="card-ercot">
-        <div class="panel-hdr"><span class="ph-title">ERCOT GRID</span><span class="ph-src">ERCOT</span></div>
+        <div class="panel-hdr"><span class="ph-title">ERCOT GRID</span><a href="https://www.ercot.com/gridmktinfo/dashboards" target="_blank" rel="noopener" class="ph-src ph-link">ERCOT</a></div>
         <div class="panel-body" id="ercot-body"><div class="loader"></div></div>
       </section>
 
       <section class="panel" id="card-aqi">
-        <div class="panel-hdr"><span class="ph-title">AIR QUALITY</span><span class="ph-src">AirNow</span></div>
+        <div class="panel-hdr"><span class="ph-title">AIR QUALITY</span><a href="https://www.airnow.gov/" target="_blank" rel="noopener" class="ph-src ph-link">AirNow</a></div>
         <div class="panel-body" id="aqi-body"><div class="loader"></div></div>
       </section>
 
       <section class="panel" id="card-spaceweather">
-        <div class="panel-hdr"><span class="ph-title">SPACE WEATHER</span><span class="ph-src">SWPC</span></div>
+        <div class="panel-hdr"><span class="ph-title">SPACE WEATHER</span><a href="https://www.swpc.noaa.gov/" target="_blank" rel="noopener" class="ph-src ph-link">SWPC</a></div>
         <div class="panel-body" id="spaceweather-body"><div class="loader"></div></div>
-      </section>
-
-      <section class="panel" id="card-hfprop">
-        <div class="panel-hdr"><span class="ph-title">HF PROPAGATION</span><span class="ph-src">KC2G</span></div>
-        <div class="panel-body" id="hfprop-body"><div class="loader"></div></div>
       </section>
 
     </aside>
@@ -158,22 +154,22 @@
   <div class="tac-tray">
 
     <section class="panel panel-compact" id="card-earthquakes">
-      <div class="panel-hdr"><span class="ph-title">EARTHQUAKES</span><span class="ph-src">USGS</span></div>
+      <div class="panel-hdr"><span class="ph-title">EARTHQUAKES (&lt;50mi)</span><a href="https://earthquake.usgs.gov/" target="_blank" rel="noopener" class="ph-src ph-link">USGS</a></div>
       <div class="panel-body" id="earthquakes-body"><div class="loader"></div></div>
     </section>
 
     <section class="panel panel-compact" id="card-wildfires">
-      <div class="panel-hdr"><span class="ph-title">WILDFIRES</span><span class="ph-src">NIFC</span></div>
+      <div class="panel-hdr"><span class="ph-title">WILDFIRES</span><a href="https://data-nifc.opendata.arcgis.com/" target="_blank" rel="noopener" class="ph-src ph-link">NIFC</a></div>
       <div class="panel-body" id="wildfires-body"><div class="loader"></div></div>
     </section>
 
-    <section class="panel panel-compact" id="card-emissions">
-      <div class="panel-hdr"><span class="ph-title">TCEQ EMISSIONS</span><span class="ph-src">TCEQ</span></div>
-      <div class="panel-body" id="emissions-body"><div class="loader"></div></div>
+    <section class="panel panel-compact" id="card-hfprop">
+      <div class="panel-hdr"><span class="ph-title">HF PROPAGATION</span><a href="https://prop.kc2g.com/" target="_blank" rel="noopener" class="ph-src ph-link">KC2G</a></div>
+      <div class="panel-body" id="hfprop-body"><div class="loader"></div></div>
     </section>
 
     <section class="panel panel-compact" id="card-sun">
-      <div class="panel-hdr"><span class="ph-title">SUN &amp; MOON</span><span class="ph-src">USNO</span></div>
+      <div class="panel-hdr"><span class="ph-title">SUN &amp; MOON</span><a href="https://aa.usno.navy.mil/data/RS_OneDay" target="_blank" rel="noopener" class="ph-src ph-link">USNO</a></div>
       <div class="panel-body" id="sun-body"><div class="loader"></div></div>
     </section>
 

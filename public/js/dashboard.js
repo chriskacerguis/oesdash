@@ -24,6 +24,10 @@
       const cfg = await api('/config');
       STATION[0] = cfg.lat;
       STATION[1] = cfg.lon;
+      if (cfg.location) {
+        const subtitle = document.getElementById('station-subtitle');
+        if (subtitle) subtitle.textContent = `${cfg.location} — Situational Awareness`;
+      }
     } catch { /* use defaults */ }
 
     map = L.map('map', { zoomControl: true, attributionControl: false }).setView(STATION, 12);
@@ -374,15 +378,13 @@
     try {
       const data = await api('/floods');
       if (data.note || !Array.isArray(data)) {
-        el.innerHTML = `<p class="info-text">${escHtml(data.note || 'ATXFloods data format unexpected')}</p>
-          <a href="https://www.atxfloods.com" target="_blank" rel="noopener" class="ext-link">Open ATXFloods.com →</a>`;
+        el.innerHTML = `<p class="info-text">${escHtml(data.note || 'ATXFloods data format unexpected')}</p>`;
         return;
       }
       const closed = data.filter(c => c.status === 'closed');
       const caution = data.filter(c => c.status === 'caution');
       if (!closed.length && !caution.length) {
-        el.innerHTML = `<p class="no-alerts">✓ All monitored crossings are open</p>
-          <a href="https://www.atxfloods.com" target="_blank" rel="noopener" class="ext-link">View all crossings →</a>`;
+        el.innerHTML = `<p class="no-alerts">✓ All monitored crossings are open</p>`;
         return;
       }
       const items = [
@@ -400,11 +402,9 @@
       el.innerHTML = `
         <div class="flood-list">${items.slice(0, 15).join('')}</div>
         <div class="timestamp">${closed.length} closed · ${caution.length} caution</div>
-        <a href="https://www.atxfloods.com" target="_blank" rel="noopener" class="ext-link">View all crossings →</a>
       `;
     } catch (e) {
-      el.innerHTML = `<p class="error-text">Flood data unavailable: ${escHtml(e.message)}</p>
-        <a href="https://www.atxfloods.com" target="_blank" rel="noopener" class="ext-link">Open ATXFloods.com →</a>`;
+      el.innerHTML = `<p class="error-text">Flood data unavailable: ${escHtml(e.message)}</p>`;
     }
   }
 
@@ -414,8 +414,7 @@
     try {
       const data = await api('/aqi');
       if (data.error) {
-        el.innerHTML = `<p class="info-text">${escHtml(data.error)}</p>
-          <a href="https://www.airnow.gov/?city=Austin&state=TX" target="_blank" rel="noopener" class="ext-link">View on AirNow →</a>`;
+        el.innerHTML = `<p class="info-text">${escHtml(data.error)}</p>`;
         return;
       }
       el.innerHTML = `<div class="aqi-grid">${data.map(d => {
@@ -438,8 +437,7 @@
         setIndClass('ind-aqi', worst.aqi > 100 ? 'danger' : worst.aqi > 50 ? 'warn' : 'ok');
       }
     } catch (e) {
-      el.innerHTML = `<p class="error-text">AQI unavailable: ${escHtml(e.message)}</p>
-        <a href="https://www.airnow.gov/?city=Austin&state=TX" target="_blank" rel="noopener" class="ext-link">View on AirNow →</a>`;
+      el.innerHTML = `<p class="error-text">AQI unavailable: ${escHtml(e.message)}</p>`;
     }
   }
 
@@ -460,7 +458,6 @@
           </div>` : ''}
           ${d.note ? `<p class="info-text" style="margin-top:0.75rem">${escHtml(d.note)}</p>` : ''}
         </div>
-        <a href="${d.dashboardUrl || 'https://www.ercot.com/gridmktinfo/dashboards'}" target="_blank" rel="noopener" class="ext-link">ERCOT Dashboard →</a>
       `;
 
       // Status strip: GRID
@@ -469,8 +466,7 @@
       setStrip('sv-grid', gridLabel, gCls);
       setIndClass('ind-grid', statusCls === 'emergency' ? 'danger' : statusCls === 'warning' ? 'warn' : 'ok');
     } catch (e) {
-      el.innerHTML = `<p class="error-text">ERCOT data unavailable: ${escHtml(e.message)}</p>
-        <a href="https://www.ercot.com/gridmktinfo/dashboards" target="_blank" rel="noopener" class="ext-link">ERCOT Dashboard →</a>`;
+      el.innerHTML = `<p class="error-text">ERCOT data unavailable: ${escHtml(e.message)}</p>`;
     }
   }
 
@@ -536,11 +532,10 @@
         });
         html += '</div>';
       }
-      html += `<a href="${d.spcUrl || 'https://www.spc.noaa.gov/'}" target="_blank" rel="noopener" class="ext-link">SPC Full Outlook →</a>`;
+
       el.innerHTML = html;
     } catch (e) {
-      el.innerHTML = `<p class="error-text">SPC data unavailable: ${escHtml(e.message)}</p>
-        <a href="https://www.spc.noaa.gov/" target="_blank" rel="noopener" class="ext-link">View SPC →</a>`;
+      el.innerHTML = `<p class="error-text">SPC data unavailable: ${escHtml(e.message)}</p>`;
     }
   }
 
@@ -557,18 +552,15 @@
               <div class="headline">${escHtml(a.headline || '')}</div>
               ${a.areas ? `<div class="headline">Areas: ${escHtml(a.areas.substring(0, 150))}</div>` : ''}
             </div>`).join('')}
-          <a href="${d.nhcUrl || 'https://www.nhc.noaa.gov/'}" target="_blank" rel="noopener" class="ext-link">NHC Full View →</a>`;
+          `;
       } else if (d.activeStorms === false || (!d.alerts || !d.alerts.length)) {
-        el.innerHTML = `<p class="no-alerts">✓ No active tropical systems</p>
-          <a href="https://www.nhc.noaa.gov/" target="_blank" rel="noopener" class="ext-link">NHC Outlook →</a>`;
+        el.innerHTML = `<p class="no-alerts">✓ No active tropical systems</p>`;
       } else {
         // Raw NHC data
-        el.innerHTML = `<p class="info-text">${escHtml(JSON.stringify(d).substring(0, 300))}</p>
-          <a href="https://www.nhc.noaa.gov/" target="_blank" rel="noopener" class="ext-link">NHC Full View →</a>`;
+        el.innerHTML = `<p class="info-text">${escHtml(JSON.stringify(d).substring(0, 300))}</p>`;
       }
     } catch (e) {
-      el.innerHTML = `<p class="error-text">Tropical data unavailable: ${escHtml(e.message)}</p>
-        <a href="https://www.nhc.noaa.gov/" target="_blank" rel="noopener" class="ext-link">View NHC →</a>`;
+      el.innerHTML = `<p class="error-text">Tropical data unavailable: ${escHtml(e.message)}</p>`;
     }
   }
 
@@ -578,7 +570,7 @@
     try {
       const d = await api('/earthquakes');
       if (!d.events || !d.events.length) {
-        el.innerHTML = '<p class="no-alerts">✓ No recent earthquakes within 500 km</p>';
+        el.innerHTML = '<p class="no-alerts">✓ No recent earthquakes within 50 miles</p>';
         return;
       }
       el.innerHTML = `<div class="quake-list">${d.events.slice(0, 8).map(q => {
@@ -635,6 +627,7 @@
           <div class="sw-stat"><div class="value">${escHtml(d.scales.radioBlackout || '—')}</div><div class="label">Radio Blackout</div></div>
           <div class="sw-stat"><div class="value">${escHtml(d.scales.solarRadiation || '—')}</div><div class="label">Solar Radiation</div></div>
           <div class="sw-stat"><div class="value">${escHtml(d.scales.geoStorm || '—')}</div><div class="label">Geomagnetic Storm</div></div>
+          <div class="sw-stat"><div class="value">${d.solarFlux != null ? d.solarFlux + ' SFU' : '—'}</div><div class="label">Solar Flux (10.7 cm)</div></div>
         `;
       }
 
@@ -643,7 +636,6 @@
           ${kpHtml}
           ${scaleHtml}
         </div>
-        <a href="${d.swpcUrl || 'https://www.swpc.noaa.gov/'}" target="_blank" rel="noopener" class="ext-link">SWPC Dashboard →</a>
       `;
 
       // Status strip: Kp
@@ -654,8 +646,7 @@
         setIndClass('ind-kp', kpV >= 5 ? 'danger' : kpV >= 4 ? 'warn' : 'ok');
       }
     } catch (e) {
-      el.innerHTML = `<p class="error-text">Space weather unavailable: ${escHtml(e.message)}</p>
-        <a href="https://www.swpc.noaa.gov/" target="_blank" rel="noopener" class="ext-link">View SWPC →</a>`;
+      el.innerHTML = `<p class="error-text">Space weather unavailable</p>`;
     }
   }
 
@@ -666,8 +657,9 @@
       const d = await api('/hfprop');
       const mufVal = d.muf != null ? d.muf + ' MHz' : '—';
       const lufVal = d.luf != null ? d.luf + ' MHz' : '—';
-      const fluxVal = d.solarFlux != null ? d.solarFlux + ' SFU' : '—';
-      const gridVal = d.grid || '—';
+
+      // Status strip: Grid Square
+      setStrip('sv-gridsq', d.grid || '—');
 
       el.innerHTML = `
         <div class="hf-grid">
@@ -678,14 +670,6 @@
           <div class="hf-stat hf-primary">
             <div class="value">${escHtml(lufVal)}</div>
             <div class="label">LUF — Lowest Usable Freq</div>
-          </div>
-          <div class="hf-stat">
-            <div class="value">${escHtml(fluxVal)}</div>
-            <div class="label">Solar Flux (10.7 cm)</div>
-          </div>
-          <div class="hf-stat">
-            <div class="value">${escHtml(gridVal)}</div>
-            <div class="label">Grid Square</div>
           </div>
         </div>
       `;
@@ -735,7 +719,7 @@
             <span class="fire-contained ${cls}">${pct}% contained</span>
           </div>`;
       }).join('')}</div>
-      <a href="${d.nifcUrl || 'https://data-nifc.opendata.arcgis.com/'}" target="_blank" rel="noopener" class="ext-link">NIFC Fire Map →</a>`;
+      `;
 
       // Map overlay: wildfire markers
       if (firesLayer) {
@@ -787,15 +771,13 @@
         el.innerHTML = `
           <div class="emissions-info">
             <p class="info-text">${escHtml(d.note || 'TCEQ Emissions Event Reports')}</p>
-            <a href="${d.url}" target="_blank" rel="noopener" class="ext-link">TCEQ Emissions Events →</a>
+
           </div>`;
       } else {
-        el.innerHTML = `<p class="info-text">${escHtml(JSON.stringify(d).substring(0, 300))}</p>
-          <a href="https://www2.tceq.texas.gov/oce/eer/" target="_blank" rel="noopener" class="ext-link">TCEQ Emissions Events →</a>`;
+        el.innerHTML = `<p class="info-text">${escHtml(JSON.stringify(d).substring(0, 300))}</p>`;
       }
     } catch (e) {
-      el.innerHTML = `<p class="error-text">Emissions data unavailable: ${escHtml(e.message)}</p>
-        <a href="https://www2.tceq.texas.gov/oce/eer/" target="_blank" rel="noopener" class="ext-link">TCEQ Emissions Events →</a>`;
+      el.innerHTML = `<p class="error-text">Emissions data unavailable: ${escHtml(e.message)}</p>`;
     }
   }
 
