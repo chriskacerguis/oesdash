@@ -4,9 +4,6 @@ const router = express.Router();
 
 const LAT = process.env.STATION_LAT || '30.2672';
 const LON = process.env.STATION_LON || '-97.7431';
-const NWS_OFFICE = process.env.NWS_OFFICE || 'EWX';
-const NWS_GRID_X = process.env.NWS_GRID_X || '157';
-const NWS_GRID_Y = process.env.NWS_GRID_Y || '95';
 const AIRNOW_KEY = process.env.AIRNOW_API_KEY || '';
 const ADSB_URL = process.env.ADSB_URL || 'http://localhost:8080';
 const AW_APP_KEY = process.env.AMBIENT_APP_KEY || '';
@@ -133,39 +130,44 @@ router.get('/weather/current', cached('weather_current', 60_000, async () => {
   };
 }));
 
-// ── NWS Forecast ────────────────────────────────────────────────────────────
-router.get('/weather/forecast', cached('weather_forecast', 600_000, async () => {
-  const { data } = await axios.get(
-    `https://api.weather.gov/gridpoints/${NWS_OFFICE}/${NWS_GRID_X},${NWS_GRID_Y}/forecast`,
-    { headers: nwsHeaders }
-  );
-  return data.properties.periods.slice(0, 8);
-}));
-
-// ── Resolve local NWS zone IDs (cached indefinitely) ────────────────────────
-let localZoneIds = null;
-async function getLocalZones() {
-  if (localZoneIds) return localZoneIds;
+// ── Resolve NWS point data (office, grid, zones — cached indefinitely) ──────
+let nwsPointCache = null;
+async function getNwsPoint() {
+  if (nwsPointCache) return nwsPointCache;
   const { data } = await axios.get(
     `https://api.weather.gov/points/${LAT},${LON}`,
     { headers: nwsHeaders, timeout: 10000 }
   );
   const props = data.properties;
   const zones = new Set();
-  // Extract zone ID from full URL (e.g. "https://api.weather.gov/zones/forecast/TXZ192" → "TXZ192")
   for (const url of [props.forecastZone, props.county, props.fireWeatherZone]) {
     if (url) {
       const id = url.split('/').pop();
       if (id) zones.add(id);
     }
   }
-  localZoneIds = [...zones];
-  return localZoneIds;
+  nwsPointCache = {
+    office: props.gridId,
+    gridX: props.gridX,
+    gridY: props.gridY,
+    zones: [...zones],
+  };
+  return nwsPointCache;
 }
+
+// ── NWS Forecast ────────────────────────────────────────────────────────────
+router.get('/weather/forecast', cached('weather_forecast', 600_000, async () => {
+  const { office, gridX, gridY } = await getNwsPoint();
+  const { data } = await axios.get(
+    `https://api.weather.gov/gridpoints/${office}/${gridX},${gridY}/forecast`,
+    { headers: nwsHeaders }
+  );
+  return data.properties.periods.slice(0, 8);
+}));
 
 // ── NWS Alerts (local zones only) ───────────────────────────────────────────
 router.get('/weather/alerts', cached('weather_alerts', 60_000, async () => {
-  const zones = await getLocalZones();
+  const { zones } = await getNwsPoint();
   const { data } = await axios.get(
     `https://api.weather.gov/alerts/active?zone=${zones.join(',')}`,
     { headers: nwsHeaders }
@@ -551,7 +553,7 @@ router.get('/tropical', cached('nhc_tropical', 600_000, async () => {
       return data;
     } catch {
       // Fallback to NWS alerts for tropical — filtered to local zones only
-      const zones = await getLocalZones();
+      const { zones } = await getNwsPoint();
       const { data } = await axios.get(
         `https://api.weather.gov/alerts/active?zone=${zones.join(',')}&event=Tropical%20Storm%20Warning,Hurricane%20Warning,Tropical%20Storm%20Watch,Hurricane%20Watch`,
         { timeout: 10000, headers: nwsHeaders }
