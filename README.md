@@ -74,6 +74,8 @@ The NWS forecast office and grid coordinates are **resolved automatically** from
 
 ### Start
 
+See the included `docker-compose.yml` for the full configuration.
+
 ```bash
 cp .env.example .env   # edit with your values
 docker compose up -d
@@ -81,10 +83,11 @@ docker compose up -d
 
 The dashboard will be available at **http://localhost:3000** (or whatever `PORT` you set).
 
-### Rebuild after changes
+### Update to latest image
 
 ```bash
-docker compose up -d --build
+docker compose pull
+docker compose up -d
 ```
 
 ### Stop
@@ -92,23 +95,6 @@ docker compose up -d --build
 ```bash
 docker compose down
 ```
-
-### docker-compose.yml
-
-```yaml
-services:
-  dashboard:
-    build: .
-    ports:
-      - "${PORT:-3000}:3000"
-    env_file:
-      - .env
-    restart: unless-stopped
-```
-
-### Dockerfile
-
-Uses `node:22-alpine` for a minimal image. Dependencies are installed with `npm ci --omit=dev` and the app runs as `node server.js` on port 3000.
 
 ---
 

@@ -1,6 +1,6 @@
 services:
   dashboard:
-    build: .
+    image: ghcr.io/chriskacerguis/oesdash:latest
     ports:
       - "${PORT:-3000}:3000"
     env_file:
