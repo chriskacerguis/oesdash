@@ -50,9 +50,6 @@ cp .env.example .env
 | `AMBIENT_API_KEY` | No | *(empty)* | Ambient Weather user API key |
 | `AIRNOW_API_KEY` | No | *(empty)* | AirNow API key for air quality data |
 | `ADSB_URL` | No | `http://localhost:8754` | dump1090 / readsb / FR24 feeder JSON endpoint |
-| `APRS_HOST` | No | `rotate.aprs2.net` | APRS-IS server hostname |
-| `APRS_PORT` | No | `14580` | APRS-IS server port |
-| `APRS_FILTER` | No | `r/30.2672/-97.7431/80` | APRS-IS filter string |
 
 The NWS forecast office and grid coordinates are **resolved automatically** from `STATION_LAT`/`STATION_LON` — no manual lookup needed.
 
